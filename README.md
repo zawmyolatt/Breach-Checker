@@ -164,3 +164,40 @@ To test if an email is compromised, use one of the following sample emails:
 6. Implement a CI/CD pipeline for automated testing and deployment
 7. Add metrics collection and dashboards for performance monitoring
 8. Implement database replication for high availability
+
+## CI/CD Pipeline
+
+This project includes a GitHub Actions workflow for continuous integration:
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│             │     │             │     │             │
+│  Git Push   │────►│    Tests    │────►│   Docker    │
+│             │     │             │     │   Build     │
+└─────────────┘     └─────────────┘     └─────────────┘
+```
+
+### Workflow Steps
+
+1. **Testing**: Runs Go tests for both API and Web services
+2. **Building**: Builds Docker images for all services to verify they can be built successfully
+
+### Running the CI Pipeline Locally
+
+You can simulate the CI pipeline locally with these commands:
+
+```bash
+# Run tests
+cd api && go test -v ./... && cd ..
+cd web && go test -v ./... && cd ..
+
+# Build Docker images
+docker build -t breach-checker-api:latest ./api
+docker build -t breach-checker-web:latest ./web
+docker build -t breach-checker-nginx:latest ./nginx
+
+# Run the application with docker-compose
+docker-compose up -d
+```
+
+This CI pipeline ensures that your code is tested and can be built successfully, providing confidence that the application will work as expected.
