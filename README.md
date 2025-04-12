@@ -1,6 +1,6 @@
 # Email Breach Checker
 
-A secure web application that allows users to check if their email addresses have been compromised in data breaches.
+A scalable web application that allows users to check if their email addresses have been compromised in data breaches.
 
 ## Features
 
@@ -15,51 +15,64 @@ A secure web application that allows users to check if their email addresses hav
 
 ## Architecture
 
-The application consists of the following components:
+This application follows a microservices architecture with the following components:
+
+### Components
+
+1. **Web Frontend**
+   - Go-based web server rendering HTML templates
+   - Provides user interface for email breach checking
+   - Displays container information for load balancing visualization
+   - Scales horizontally to handle increased user traffic
+
+2. **API Service**
+   - RESTful API for checking email breach status
+   - Connects to PostgreSQL database for breach data
+   - Uses Redis for caching frequent queries
+   - Scales horizontally to handle increased request load
+
+3. **Nginx**
+   - Acts as a reverse proxy and load balancer
+   - Distributes traffic across multiple web and API instances
+   - Provides a unified entry point for the application
+
+4. **PostgreSQL Database**
+   - Stores the database of compromised emails
+   - Persistent storage with volume mounting
+
+5. **Redis Cache**
+   - Caches API responses to reduce database load
+   - Improves response times for frequently checked emails
+
+### Architecture Diagram
 
 ```
-                                   ┌─────────────┐
-                                   │             │
-                                   │   Users     │
-                                   │             │
-                                   └──────┬──────┘
-                                          │
-                                          ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                              Docker Host                            │
-│                                                                     │
-│  ┌─────────────┐     ┌─────────────┐      ┌─────────────────────┐   │
-│  │             │     │             │      │                     │   │
-│  │    Nginx    │     │     Web     │      │        API          │   │
-│  │  Reverse    │◄───►│  Frontend   │◄────►│      Service        │   │
-│  │   Proxy     │     │  (Go)       │      │       (Go)          │   │
-│  │             │     │             │      │                     │   │
-│  └─────────────┘     └─────────────┘      └───────────┬─────────┘   │
-│         ▲                                             │             │
-│         │                                             │             │
-│         │                                             ▼             │
-│         │                                  ┌──────────────────────┐ │
-│         │                                  │                      │ │
-│         │                                  │     Redis Cache      │ │
-│         │                                  │                      │ │
-│         │                                  └──────────────────────┘ │
-│         │                                             ▲             │
-│         │                                             │             │
-│         │                                             ▼             │
-│         │                                  ┌──────────────────────┐ │
-│         │                                  │                      │ │
-│         └──────────────────────────────────┤  PostgreSQL Database │ │
-│                                            │                      │ │
-│                                            └──────────────────────┘ │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
+                   ┌─────────────┐
+                   │    Users    │
+                   └──────┬──────┘
+                          │
+                          ▼
+                   ┌─────────────┐
+                   │    Nginx    │
+                   │Load Balancer│
+                   └──────┬──────┘
+                          │
+              ┌───────────┴───────────┐
+              │                       │
+              ▼                       ▼
+┌─────────────────────────┐   ┌─────────────────────┐
+│     Web Frontend        │   │     API Service     │
+│  (Multiple Instances)   │──►|(Multiple Instances) │
+└─────────────────────────┘   └─────────┬───────────┘
+                                        │
+                             ┌──────────┴──────────┐
+                             │                     │
+                             ▼                     ▼
+                      ┌─────────────┐      ┌─────────────┐
+                      │  PostgreSQL │      │    Redis    │
+                      │  Database   │      │    Cache    │
+                      └─────────────┘      └─────────────┘
 ```
-
-1. **Web Frontend**: A Go web server that provides the user interface
-2. **API Service**: A Go RESTful API that validates emails against the database
-3. **PostgreSQL Database**: Stores the list of compromised emails
-4. **Redis Cache**: Caches API responses for improved performance
-5. **Nginx**: Acts as a reverse proxy and load balancer
 
 ### Data Flow
 
@@ -128,6 +141,90 @@ To test if an email is compromised, use one of the following sample emails:
 - Input validation to prevent injection attacks
 - Containerization for isolation
 - Nginx as a reverse proxy to hide backend services
+
+## Auto-Scaling Configuration
+
+The application is designed to scale horizontally to handle increased load. Here's how the auto-scaling is configured:
+
+### Container Information Display
+
+The web interface displays which container is serving your request. This helps visualize the load balancing in action:
+
+- Each web container shows its container ID and name at the bottom of the page
+- This allows you to see which container is handling your request as you refresh the page
+
+### Scaling Services
+
+You can scale the services using Docker Compose:
+
+```bash
+# Scale the API service to 3 instances
+docker-compose up -d --scale api=3
+
+# Scale the web service to 3 instances
+docker-compose up -d --scale web=3
+```
+
+When you scale a service, Nginx will automatically distribute traffic across all available instances.
+
+### Load Balancing Strategy
+
+- **Web Service**: Nginx uses round-robin load balancing to distribute user requests across multiple web containers
+- **API Service**: Nginx uses round-robin load balancing to distribute API requests across multiple API containers
+
+### Resource Limits
+
+Each service has configured resource limits to ensure optimal performance:
+
+- **Web**: 0.5 CPU cores, 512MB memory per instance
+- **API**: 0.5 CPU cores, 512MB memory per instance
+- **Database**: 1.0 CPU cores, 1GB memory
+- **Redis**: 0.5 CPU cores, 512MB memory
+- **Nginx**: 0.5 CPU cores, 256MB memory
+
+### Health Checks
+
+All services include health checks to ensure that only healthy instances receive traffic:
+
+- **API**: Checks the `/health` endpoint every 10 seconds
+- **Web**: Checks the `/health` endpoint every 10 seconds
+- **Database**: Checks connection availability every 10 seconds
+- **Redis**: Checks connection availability every 10 seconds
+
+If a service fails its health check, it will be automatically restarted.
+
+### Container Optimization
+
+The Dockerfiles for both web and API services have been optimized for auto-scaling:
+
+1. **Multi-stage builds** to create smaller, more efficient containers
+2. **Non-root user execution** for improved security
+3. **Built-in health checks** for better orchestration
+4. **Optimized dependencies** to reduce container size and startup time
+
+### Testing Load Balancing
+
+To see the load balancing in action:
+
+1. Scale up the web service:
+   ```bash
+   docker-compose up -d --scale web=3
+   ```
+
+2. Refresh the page multiple times
+   - You should see different container IDs handling your requests
+   - This demonstrates that Nginx is distributing traffic across multiple containers
+
+3. Simulate high load:
+   ```bash
+   # Using Apache Bench to send 1000 requests with 10 concurrent connections
+   ab -n 1000 -c 10 http://localhost/
+   ```
+
+4. Monitor container performance:
+   ```bash
+   docker stats
+   ```
 
 ## Security Risks and Mitigation
 

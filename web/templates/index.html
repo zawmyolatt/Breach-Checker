@@ -6,6 +6,17 @@
     <title>Email Breach Checker</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <meta name="description" content="Check if your email has been compromised in a data breach">
+    <style>
+        .container-info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #6c757d;
+            border: 1px solid #dee2e6;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -40,6 +51,11 @@
                     two-factor authentication where available.
                 </p>
             </section>
+            
+            <div class="container-info">
+                <p><strong>Web Container:</strong> {{.ContainerName}} ({{.ContainerID}})</p>
+                <p><small>This information helps demonstrate load balancing across multiple containers.</small></p>
+            </div>
         </main>
         
         <footer>

@@ -15,6 +15,13 @@ services:
       - frontend
       - backend
     restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
   # API service
   api:
@@ -28,15 +35,27 @@ services:
       - DB_NAME=breachdb
       - REDIS_HOST=cache
       - REDIS_PORT=6379
-    ports:
-      - "8080:8080"
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
     depends_on:
       - db
       - cache
     networks:
       - backend
       - frontend
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # PostgreSQL database
   db:
@@ -55,6 +74,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
   # Redis cache
   cache:
@@ -70,6 +94,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   # Web frontend
   web:
@@ -77,14 +106,26 @@ services:
       context: ./web
     environment:
       - API_URL=http://api:8080
-    ports:
-      - "3000:3000"
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
     depends_on:
       - api
     networks:
       - frontend
       - backend
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 networks:
   frontend:

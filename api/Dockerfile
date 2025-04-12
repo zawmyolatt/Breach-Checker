@@ -1,5 +1,7 @@
+# Build stage
 FROM golang:1.21-alpine AS builder
 
+# Set working directory
 WORKDIR /app
 
 # Install dependencies
@@ -15,21 +17,40 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o api .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o api-server .
 
-# Create final lightweight image
+# Final stage
 FROM alpine:3.18
 
+# Install necessary packages
+RUN apk add --no-cache ca-certificates tzdata curl
+
+# Set working directory
 WORKDIR /app
 
-# Install CA certificates for HTTPS
-RUN apk --no-cache add ca-certificates
-
 # Copy binary from builder stage
-COPY --from=builder /app/api .
+COPY --from=builder /app/api-server .
+
+# Create a non-root user and switch to it
+RUN adduser -D -g '' appuser && \
+    chown -R appuser:appuser /app
+USER appuser
 
 # Expose port
 EXPOSE 8080
 
+# Create health check script
+USER root
+RUN echo '#!/bin/sh' > /usr/local/bin/healthcheck.sh && \
+    echo 'curl -s -f http://localhost:8080/health || exit 1' >> /usr/local/bin/healthcheck.sh && \
+    chmod +x /usr/local/bin/healthcheck.sh
+USER appuser
+
+# Add health check
+HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=3 CMD /usr/local/bin/healthcheck.sh
+
+# Set environment variables
+ENV PORT=8080
+
 # Run the application
-CMD ["./api"] 
+CMD ["./api-server"] 
