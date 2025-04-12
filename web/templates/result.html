@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Breach Check Results</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <meta name="description" content="Results of your email breach check">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Email Breach Check Results</h1>
+        </header>
+        
+        <main>
+            <section class="result {{if .Compromised}}compromised{{else}}safe{{end}}">
+                <h2>{{if .Compromised}}Warning: Email Compromised{{else}}Good News: Email Safe{{end}}</h2>
+                
+                <div class="result-details">
+                    <p><strong>Email:</strong> {{.Email}}</p>
+                    <p><strong>Status:</strong> {{if .Compromised}}Compromised{{else}}Not Compromised{{end}}</p>
+                    <p>{{.Message}}</p>
+                </div>
+                
+                {{if .Compromised}}
+                <div class="recommendations">
+                    <h3>What to do now:</h3>
+                    <ul>
+                        <li>Change your password immediately</li>
+                        <li>Enable two-factor authentication if available</li>
+                        <li>Check for suspicious activity on your account</li>
+                        <li>Use a unique password for each of your accounts</li>
+                        <li>Consider using a password manager</li>
+                    </ul>
+                </div>
+                {{end}}
+                
+                <div class="actions">
+                    <a href="/" class="btn">Check Another Email</a>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2023 Email Breach Checker. All rights reserved.</p>
+        </footer>
+    </div>
+    
+    <script src="/static/js/script.js"></script>
+</body>
+</html> 
