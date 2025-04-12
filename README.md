@@ -17,11 +17,59 @@ A secure web application that allows users to check if their email addresses hav
 
 The application consists of the following components:
 
+```
+                                   ┌─────────────┐
+                                   │             │
+                                   │   Users     │
+                                   │             │
+                                   └──────┬──────┘
+                                          │
+                                          ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                              Docker Host                            │
+│                                                                     │
+│  ┌─────────────┐     ┌─────────────┐      ┌─────────────────────┐   │
+│  │             │     │             │      │                     │   │
+│  │    Nginx    │     │     Web     │      │        API          │   │
+│  │  Reverse    │◄───►│  Frontend   │◄────►│      Service        │   │
+│  │   Proxy     │     │  (Go)       │      │       (Go)          │   │
+│  │             │     │             │      │                     │   │
+│  └─────────────┘     └─────────────┘      └───────────┬─────────┘   │
+│         ▲                                             │             │
+│         │                                             │             │
+│         │                                             ▼             │
+│         │                                  ┌──────────────────────┐ │
+│         │                                  │                      │ │
+│         │                                  │     Redis Cache      │ │
+│         │                                  │                      │ │
+│         │                                  └──────────────────────┘ │
+│         │                                             ▲             │
+│         │                                             │             │
+│         │                                             ▼             │
+│         │                                  ┌──────────────────────┐ │
+│         │                                  │                      │ │
+│         └──────────────────────────────────┤  PostgreSQL Database │ │
+│                                            │                      │ │
+│                                            └──────────────────────┘ │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
 1. **Web Frontend**: A Go web server that provides the user interface
 2. **API Service**: A Go RESTful API that validates emails against the database
 3. **PostgreSQL Database**: Stores the list of compromised emails
 4. **Redis Cache**: Caches API responses for improved performance
 5. **Nginx**: Acts as a reverse proxy and load balancer
+
+### Data Flow
+
+1. User requests arrive at the Nginx reverse proxy
+2. Web interface requests are forwarded to the Web Frontend service
+3. Email check requests are sent from the Web Frontend to the API Service
+4. The API Service first checks the Redis Cache for the email
+5. If not found in cache, the API Service queries the PostgreSQL Database
+6. Results are cached in Redis for future requests
+7. The response is returned to the user through the Web Frontend
 
 ## Getting Started
 
