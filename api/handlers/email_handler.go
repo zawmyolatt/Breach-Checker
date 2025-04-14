@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/mail"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -33,6 +34,8 @@ func (h *EmailHandler) CheckEmail(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var email string
+	var compromised bool
+	var fromCache bool
 
 	// Handle different HTTP methods
 	switch r.Method {
@@ -70,25 +73,28 @@ func (h *EmailHandler) CheckEmail(w http.ResponseWriter, r *http.Request) {
 	cachedResult, err := h.cache.Get(ctx, cacheKey)
 
 	if err == nil {
-		// Cache hit
-		var response models.EmailCheckResponse
-		if err := json.Unmarshal([]byte(cachedResult), &response); err == nil {
-			log.Printf("Cache hit for email: %s", email)
-			respondWithJSON(w, http.StatusOK, response)
+		// Cache hit as a boolean
+		compromised, err = strconv.ParseBool(cachedResult)
+		if err != nil {
+			log.Printf("Error parsing cached result: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "Error checking email")
 			return
 		}
-	}
+		fromCache = true
+	} else {
+		// Cache miss, check database
+		compromised, err = database.CheckEmailCompromised(h.db, email)
+		if err != nil {
+			log.Printf("Error checking email: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "Error checking email")
+			return
+		}
 
-	// Check database
-	compromised, err := database.CheckEmailCompromised(h.db, email)
-	if err != nil {
-		log.Printf("Error checking email: %v", err)
-		respondWithError(w, http.StatusInternalServerError, "Error checking email")
-		return
+		// Cache the result for 1 hour
+		h.cache.Set(ctx, cacheKey, strconv.FormatBool(compromised), time.Hour)
+		fromCache = false
 	}
-
-	// Cache the result for 1 hour
-	h.cache.Set(ctx, cacheKey, compromised, time.Hour)
+	log.Printf("Email %s is compromised: %t, from cache: %t", email, compromised, fromCache)
 
 	// Prepare response
 	response := models.EmailCheckResponse{
@@ -101,10 +107,6 @@ func (h *EmailHandler) CheckEmail(w http.ResponseWriter, r *http.Request) {
 	} else {
 		response.Message = "This email does not appear in our database of compromised accounts."
 	}
-
-	// Cache the result for 1 hour
-	responseJSON, _ := json.Marshal(response)
-	h.cache.Set(ctx, cacheKey, responseJSON, time.Hour)
 
 	// Send response
 	respondWithJSON(w, http.StatusOK, response)
