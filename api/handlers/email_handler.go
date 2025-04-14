@@ -87,6 +87,9 @@ func (h *EmailHandler) CheckEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cache the result for 1 hour
+	h.cache.Set(ctx, cacheKey, compromised, time.Hour)
+
 	// Prepare response
 	response := models.EmailCheckResponse{
 		Email:       email,
